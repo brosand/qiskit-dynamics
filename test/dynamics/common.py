@@ -26,7 +26,7 @@ except ImportError:
     pass
 
 from qiskit_dynamics import dispatch
-from qiskit_dynamics.dispatch import Array, wrap
+from qiskit_dynamics.array import Array, wrap
 
 
 class QiskitDynamicsTestCase(unittest.TestCase):
@@ -65,9 +65,10 @@ class TestJaxBase(unittest.TestCase):
     def setUpClass(cls):
         try:
             # pylint: disable=import-outside-toplevel
-            from jax import config
+            import jax
 
-            config.update("jax_enable_x64", True)
+            jax.config.update("jax_enable_x64", True)
+            jax.config.update("jax_platform_name", "cpu")
         except Exception as err:
             raise unittest.SkipTest("Skipping jax tests.") from err
 

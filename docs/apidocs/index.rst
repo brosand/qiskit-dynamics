@@ -12,4 +12,6 @@ Qiskit Dynamics API Reference
    solvers
    models
    signals
-   converters
+   pulse
+   array
+   dispatch

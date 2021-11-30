@@ -166,7 +166,7 @@ class RotatingFrame:
         return self.frame_basis @ y
 
     def operator_into_frame_basis(
-        self, op: Union[Operator, List[Operator], Array, csr_matrix]
+        self, op: Union[Operator, List[Operator], Array, csr_matrix, None]
     ) -> Array:
         r"""Take an operator into the frame basis, i.e. return
         ``self.frame_basis_adjoint @ A @ self.frame_basis``
@@ -183,7 +183,7 @@ class RotatingFrame:
         return self.frame_basis_adjoint @ (op @ self.frame_basis)
 
     def operator_out_of_frame_basis(
-        self, op: Union[Operator, List[Operator], Array, csr_matrix]
+        self, op: Union[Operator, List[Operator], Array, csr_matrix, None]
     ) -> Array:
         r"""Take an operator out of the frame basis, i.e. return
         ``self.frame_basis @ to_array(op) @ self.frame_basis_adjoint``.
@@ -265,12 +265,12 @@ class RotatingFrame:
     def _conjugate_and_add(
         self,
         t: float,
-        operator: Array,
+        operator: Union[Array, csr_matrix],
         op_to_add_in_fb: Optional[Array] = None,
         operator_in_frame_basis: Optional[bool] = False,
         return_in_frame_basis: Optional[bool] = False,
         vectorized_operators: Optional[bool] = False,
-    ) -> Array:
+    ) -> Union[Array, csr_matrix]:
         r"""General helper function for computing :math:`\exp(-tF)G\exp(tF) + B`.
 
         Note: B is added in the frame basis before any potential final change
@@ -331,6 +331,8 @@ class RotatingFrame:
             out = frame_mat * out
 
         if op_to_add_in_fb is not None:
+            if issparse(out) and op_to_add_in_fb is not None:
+                op_to_add_in_fb = csr_matrix(op_to_add_in_fb)
             out = out + op_to_add_in_fb
 
         # if output is requested to not be in the frame basis, convert it

@@ -252,7 +252,7 @@ def vec_commutator(
     so for the commutator we have
 
     .. math::
-        [A, \cdot] = A \cdot - \cdot A \mapsto id \otimes A - A^T \otimes id
+        -i[A, \cdot] = -i(A \cdot - \cdot A \mapsto id \otimes A - A^T \otimes id)
 
     Note: this function is also "vectorized" in the programming sense for dense arrays.
 
@@ -280,7 +280,7 @@ def vec_commutator(
     axes = list(range(A.ndim))
     axes[-1] = axes[-2]
     axes[-2] += 1
-    return np.kron(iden, A) - np.kron(A.transpose(axes), iden)
+    return -1j * (np.kron(iden, A) - np.kron(A.transpose(axes), iden))
 
 
 def vec_dissipator(
@@ -333,6 +333,24 @@ def vec_dissipator(
 def isinstance_qutip_qobj(obj):
     """Check if the object is a qutip Qobj.
 
+    Args:
+        obj (any): Any object for testing.
+
+    Returns:
+        Bool: True if obj is qutip Qobj
+    """
+    if (
+        type(obj).__name__ == "Qobj"
+        and hasattr(obj, "_data")
+        and type(obj._data).__name__ == "fast_csr_matrix"
+    ):
+        return True
+    return False
+
+
+# pylint: disable=too-many-return-statements
+def to_array(op: Union[Operator, Array, List[Operator], List[Array], spmatrix], no_iter=False):
+    """Convert an operator or list of operators to an Array.
     Args:
         obj (any): Any object for testing.
 

@@ -22,6 +22,9 @@ requirements = [
     "qiskit-terra>=0.16.0",
 ]
 
+jax_extras = ['jax>=0.2.11',
+              'jaxlib>=0.1.65']
+
 PACKAGES = setuptools.find_packages(exclude=['test*'])
 
 version_path = os.path.abspath(
@@ -56,14 +59,22 @@ setuptools.setup(
         "Operating System :: MacOS",
         "Operating System :: POSIX :: Linux",
         "Programming Language :: Python :: 3 :: Only",
-        "Programming Language :: Python :: 3.6",
         "Programming Language :: Python :: 3.7",
         "Programming Language :: Python :: 3.8",
+        "Programming Language :: Python :: 3.9",
         "Topic :: Scientific/Engineering",
     ],
     keywords="qiskit sdk quantum",
+    project_urls={
+        "Bug Tracker": "https://github.com/Qiskit/qiskit-dynamics/issues",
+        "Source Code": "https://github.com/Qiskit/qiskit-dynamics",
+        "Documentation": "https://qiskit.org/documentation/dynamics",
+    },
     install_requires=requirements,
     include_package_data=True,
-    python_requires=">=3.6",
+    python_requires=">=3.7",
+    extras_require={
+        "jax": jax_extras
+    },
     zip_safe=False
 )

@@ -23,10 +23,15 @@ Qiskit extension module for simulating quantum dynamics.
 """
 from .version import __version__
 
+from .models.rotating_frame import RotatingFrame
+
+from .signals.signals import Signal, DiscreteSignal
+
 from .solvers.solver_functions import solve_ode, solve_lmde
 from .solvers.solver_classes import Solver
 
 from . import models
 from . import signals
-from . import converters
+from . import pulse
 from . import dispatch
+from . import array

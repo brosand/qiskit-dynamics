@@ -11,24 +11,37 @@
 # that they have been altered from the originals.
 # pylint: disable=invalid-name,broad-except
 
-"""Tests for solve_lmde and related functions."""
+"""Tests error handling of solve_ode and solve_lmde, and helper functions.
+
+Tests for results of solvers are in test_solve_functions.py.
+"""
 
 import numpy as np
-from scipy.linalg import expm
 
 from qiskit import QiskitError
 from qiskit.quantum_info import Operator
 
-from qiskit_dynamics.models import GeneratorModel, HamiltonianModel, LindbladModel
-from qiskit_dynamics.signals import Signal, DiscreteSignal
-from qiskit_dynamics import solve_lmde
+from qiskit_dynamics.models import HamiltonianModel, LindbladModel
+from qiskit_dynamics.signals import Signal
+from qiskit_dynamics import solve_ode, solve_lmde
 from qiskit_dynamics.solvers.solver_functions import (
     setup_generator_model_rhs_y0_in_frame_basis,
     results_y_out_of_frame_basis,
 )
-from qiskit_dynamics.dispatch import Array
 
-from ..common import QiskitDynamicsTestCase, TestJaxBase
+from ..common import QiskitDynamicsTestCase
+
+
+class Testsolve_ode_exceptions(QiskitDynamicsTestCase):
+    """Test exceptions of solve_ode."""
+
+    def test_method_does_not_exist(self):
+        """Test method does not exist exception."""
+
+        with self.assertRaises(QiskitError) as qe:
+            solve_ode(lambda t, y: y, t_span=[0.0, 1.0], y0=np.array([1.0]), method="notamethod")
+
+        self.assertTrue("not supported" in str(qe.exception))
 
 
 class Testsolve_lmde_exceptions(QiskitDynamicsTestCase):
@@ -66,14 +79,14 @@ class TestLMDEGeneratorModelSetup(QiskitDynamicsTestCase):
         self.ham_model = HamiltonianModel(
             operators=[Operator.from_label("X")],
             signals=[Signal(1.0, 5.0)],
-            drift=Operator.from_label("Z"),
+            static_operator=Operator.from_label("Z"),
         )
 
         self.lindblad_model = LindbladModel(
             hamiltonian_operators=[Operator.from_label("X")],
             hamiltonian_signals=[Signal(1.0, 5.0)],
-            drift=Operator.from_label("Z"),
-            dissipator_operators=[Operator.from_label("Y")],
+            static_hamiltonian=Operator.from_label("Z"),
+            static_dissipators=[Operator.from_label("Y")],
         )
 
         self.vec_lindblad_model = self.lindblad_model.copy()
@@ -88,7 +101,9 @@ class TestLMDEGeneratorModelSetup(QiskitDynamicsTestCase):
         """Test functions for Hamiltonian with no frame."""
 
         y0 = np.array([3.43, 1.31])
-        gen, rhs, new_y0 = setup_generator_model_rhs_y0_in_frame_basis(self.ham_model, y0)
+        gen, rhs, new_y0, model_in_frame_basis = setup_generator_model_rhs_y0_in_frame_basis(
+            self.ham_model, y0
+        )
 
         # expect nothing to happen
         self.assertAllClose(y0, new_y0)
@@ -96,31 +111,46 @@ class TestLMDEGeneratorModelSetup(QiskitDynamicsTestCase):
         self.assertAllClose(gen(t), self.ham_model(t))
         self.assertAllClose(rhs(t, y0), self.ham_model(t, y0))
 
+        # check frame parameters
+        self.assertFalse(model_in_frame_basis)
+        # check that model has been converted to being in frame basis
+        self.assertTrue(self.ham_model.in_frame_basis)
+
     def test_hamiltonian_setup(self):
         """Test functions for Hamiltonian with frame."""
 
         ham_model = self.ham_model.copy()
         ham_model.rotating_frame = self.frame_op
-
         y0 = np.array([3.43, 1.31])
-        gen, rhs, new_y0 = setup_generator_model_rhs_y0_in_frame_basis(ham_model, y0)
+        gen, rhs, new_y0, model_in_frame_basis = setup_generator_model_rhs_y0_in_frame_basis(
+            ham_model, y0
+        )
 
-        # expect nothing to happen
+        # check frame parameters
+        self.assertFalse(model_in_frame_basis)
+        # check that model has been converted to being in frame basis
+        self.assertTrue(ham_model.in_frame_basis)
+        self.assertFalse(self.ham_model.in_frame_basis)
+
         self.assertAllClose(self.Uadj @ y0, new_y0)
         t = 231.232
-        self.assertAllClose(gen(t), ham_model(t, in_frame_basis=True))
-        self.assertAllClose(rhs(t, y0), ham_model(t, y0, in_frame_basis=True))
+        self.ham_model.in_frame_basis = True
+        self.assertAllClose(gen(t), ham_model(t))
+        self.assertAllClose(rhs(t, y0), ham_model(t, y0))
 
     def test_lindblad_setup_no_frame(self):
         """Test functions for LindbladModel with no frame."""
 
         y0 = np.array([[3.43, 1.31], [3.0, 1.23]])
-        _, rhs, new_y0 = setup_generator_model_rhs_y0_in_frame_basis(self.lindblad_model, y0)
+        _, rhs, new_y0, model_in_frame_basis = setup_generator_model_rhs_y0_in_frame_basis(
+            self.lindblad_model, y0
+        )
 
         # expect nothing to happen
         self.assertAllClose(y0, new_y0)
         t = 231.232
         self.assertAllClose(rhs(t, y0), self.lindblad_model(t, y0))
+        self.assertFalse(model_in_frame_basis)
 
     def test_lindblad_setup(self):
         """Test functions for LindbladModel with frame."""
@@ -129,22 +159,26 @@ class TestLMDEGeneratorModelSetup(QiskitDynamicsTestCase):
         lindblad_model.rotating_frame = self.frame_op
 
         y0 = np.array([[3.43, 1.31], [3.0, 1.23]])
-        _, rhs, new_y0 = setup_generator_model_rhs_y0_in_frame_basis(lindblad_model, y0)
+        _, rhs, new_y0, _ = setup_generator_model_rhs_y0_in_frame_basis(lindblad_model, y0)
 
         # expect nothing to happen
         self.assertAllClose(self.Uadj @ y0 @ self.U, new_y0)
         t = 231.232
-        self.assertAllClose(rhs(t, y0), lindblad_model(t, y0, in_frame_basis=True))
+        self.assertTrue(lindblad_model.in_frame_basis)
+        self.assertAllClose(rhs(t, y0), lindblad_model(t, y0))
 
     def test_vectorized_lindblad_setup_no_frame(self):
         """Test functions for vectorized LindbladModel with no frame."""
 
         y0 = np.array([[3.43, 1.31], [3.0, 1.23]]).flatten()
-        gen, rhs, new_y0 = setup_generator_model_rhs_y0_in_frame_basis(self.vec_lindblad_model, y0)
+        gen, rhs, new_y0, _ = setup_generator_model_rhs_y0_in_frame_basis(
+            self.vec_lindblad_model, y0
+        )
 
         # expect nothing to happen
         self.assertAllClose(y0, new_y0)
         t = 231.232
+        self.assertTrue(self.vec_lindblad_model.in_frame_basis)
         self.assertAllClose(gen(t), self.vec_lindblad_model(t))
         self.assertAllClose(rhs(t, y0), self.vec_lindblad_model(t, y0))
 
@@ -155,13 +189,14 @@ class TestLMDEGeneratorModelSetup(QiskitDynamicsTestCase):
         vec_lindblad_model.rotating_frame = self.frame_op
 
         y0 = np.array([[3.43, 1.31], [3.0, 1.23]]).flatten()
-        gen, rhs, new_y0 = setup_generator_model_rhs_y0_in_frame_basis(vec_lindblad_model, y0)
+        gen, rhs, new_y0, _ = setup_generator_model_rhs_y0_in_frame_basis(vec_lindblad_model, y0)
 
         # expect nothing to happen
         self.assertAllClose(np.kron(self.Uadj.conj(), self.Uadj) @ y0, new_y0)
         t = 231.232
-        self.assertAllClose(gen(t), vec_lindblad_model(t, in_frame_basis=True))
-        self.assertAllClose(rhs(t, y0), vec_lindblad_model(t, y0, in_frame_basis=True))
+        self.assertTrue(vec_lindblad_model.in_frame_basis)
+        self.assertAllClose(gen(t), vec_lindblad_model(t))
+        self.assertAllClose(rhs(t, y0), vec_lindblad_model(t, y0))
 
     def test_hamiltonian_results_conversion_no_frame(self):
         """Test hamiltonian results conversion with no frame."""
@@ -253,85 +288,3 @@ class TestLMDEGeneratorModelSetup(QiskitDynamicsTestCase):
         output = results_y_out_of_frame_basis(vec_lindblad_model, results_y, y0_ndim=2)
         expected = [P @ y for y in results_y]
         self.assertAllClose(expected, output)
-
-
-# pylint: disable=too-many-instance-attributes
-class Testsolve_lmde_Base(QiskitDynamicsTestCase):
-    """Some reusable routines for high level solve_lmde tests."""
-
-    def setUp(self):
-        self.t_span = [0.0, 1.0]
-        self.y0 = Array(np.eye(2, dtype=complex))
-
-        self.X = Array([[0.0, 1.0], [1.0, 0.0]], dtype=complex)
-        self.Y = Array([[0.0, -1j], [1j, 0.0]], dtype=complex)
-        self.Z = Array([[1.0, 0.0], [0.0, -1.0]], dtype=complex)
-
-        # simple generator and rhs
-        # pylint: disable=unused-argument
-        def generator(t):
-            return -1j * 2 * np.pi * self.X / 2
-
-        self.basic_generator = generator
-
-    def _fixed_step_LMDE_method_tests(self, method):
-        results = solve_lmde(
-            self.basic_generator, t_span=self.t_span, y0=self.y0, method=method, max_dt=0.1
-        )
-
-        expected = expm(-1j * np.pi * self.X.data)
-
-        self.assertAllClose(results.y[-1], expected)
-
-        # randomized LMDE example
-        dim = 7
-        b = 0.5
-        rng = np.random.default_rng(3093)
-        drift = rng.uniform(low=-b, high=b, size=(dim, dim)) + 1j * rng.uniform(
-            low=-b, high=b, size=(dim, dim)
-        )
-        operators = rng.uniform(low=-b, high=b, size=(1, dim, dim)) + 1j * rng.uniform(
-            low=-b, high=b, size=(1, dim, dim)
-        )
-        frame_op = rng.uniform(low=-b, high=b, size=(dim, dim)) + 1j * rng.uniform(
-            low=-b, high=b, size=(dim, dim)
-        )
-        frame_op = frame_op.conj().transpose() - frame_op
-        y0 = rng.uniform(low=-b, high=b, size=(dim,)) + 1j * rng.uniform(
-            low=-b, high=b, size=(dim,)
-        )
-
-        sig = DiscreteSignal(
-            samples=rng.uniform(low=-b, high=b, size=(5,)), dt=0.1, carrier_freq=1.0
-        )
-        model = GeneratorModel(
-            operators=operators, signals=[sig], drift=drift, rotating_frame=frame_op
-        )
-
-        results = solve_lmde(model, t_span=[0, 0.5], y0=y0, method=method, max_dt=0.01)
-        yf = model.rotating_frame.state_out_of_frame(0.5, results.y[-1])
-
-        # simulate directly out of frame
-        def generator(t):
-            return drift + sig(t) * operators[0]
-
-        results2 = solve_lmde(generator, t_span=[0, 0.5], y0=y0, method=method, max_dt=0.01)
-
-        # check consistency - this is relatively low tolerance due to the solver tolerance
-        self.assertAllClose(yf, results2.y[-1], atol=1e-5, rtol=1e-5)
-
-
-class Testsolve_lmde_scipy_expm(Testsolve_lmde_Base):
-    """Basic tests for solve_lmde with method=='expm'."""
-
-    def test_scipy_expm_solver(self):
-        """Test scipy_expm_solver."""
-        self._fixed_step_LMDE_method_tests("scipy_expm")
-
-
-class Testsolve_lmde_jax_expm(Testsolve_lmde_Base, TestJaxBase):
-    """Basic tests for solve_lmde with method=='jax_expm'."""
-
-    def test_jax_expm_solver(self):
-        """Test jax_expm_solver."""
-        self._fixed_step_LMDE_method_tests("jax_expm")

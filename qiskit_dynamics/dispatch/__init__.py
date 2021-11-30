@@ -1,6 +1,8 @@
+# -*- coding: utf-8 -*-
+
 # This code is part of Qiskit.
 #
-# (C) Copyright IBM 2017, 2020.
+# (C) Copyright IBM 2020.
 #
 # This code is licensed under the Apache License, Version 2.0. You may
 # obtain a copy of this license in the LICENSE.txt file in the root directory
@@ -10,10 +12,29 @@
 # copyright notice, and modified files need to carry a notice indicating
 # that they have been altered from the originals.
 
-"""Array with numpy compatibility and multiple backend support.
+"""
+=================================================
+Dispatch Module (:mod:`qiskit_dynamics.dispatch`)
+=================================================
 
-This is a prototype of the qiskit.quantum_info.dispatch module and
-should eventually be imported from there once it has been added to qiskit-terra.
+.. currentmodule:: qiskit_dynamics.dispatch
+
+This module contains dispatch methods used by the
+:class:`~qiskit_dynamics.array.Array` class.
+
+
+Dispatch Functions
+==================
+
+.. autosummary::
+    :toctree: ../stubs/
+
+    set_default_backend
+    default_backend
+    available_backends
+    backend_types
+    asarray
+    requires_backend
 """
 
 # Import Array
@@ -38,7 +59,3 @@ from .backends import *
 # If only one backend is available, set it as the default
 if len(available_backends()) == 1:
     set_default_backend(available_backends()[0])
-
-# Monkey patch quantum info
-# pylint: disable= wrong-import-position
-from .patch_qi import *
