@@ -7,23 +7,7 @@ tags:
   - quantum computing
   - differential equations
   - jax
-authors:
-  - name: Adrian M. Price-Whelan^[co-first author] # note this makes a footnote saying 'co-first author'
-    orcid: 0000-0003-0872-7098
-    affiliation: "1, 2" # (Multiple affiliations must be quoted)
-  - name: Author Without ORCID^[co-first author] # note this makes a footnote saying 'co-first author'
-    affiliation: 2
-  - name: Author with no affiliation^[corresponding author]
-    affiliation: 3
-affiliations:
- - name: Lyman Spitzer, Jr. Fellow, Princeton University
-   index: 1
- - name: Institution Name
-   index: 2
- - name: Independent Researcher
-   index: 3
-date: 8 December 2021
-bibliography: paper.bib
+
 
 # Optional fields if submitting to a AAS journal too, see this blog post:
 # https://blog.joss.theoj.org/2018/12/a-new-collaboration-with-aas-publishing
@@ -42,6 +26,8 @@ is now well-established, commonly taught, and frequently used in astronomy.
 Aside from toy problems and demonstrations, the majority of problems require
 efficient numerical tools, many of which require the same base code (e.g., for
 performing numerical orbit integration).
+
+In the field of quantum physics, numerical models of systems often are built around differential equations. Modeling the evolution of quantum systems is a slow and difficult process, which explodes in difficulty as the dimensionality of these systems grows. Modeling quantum systems is a basic research need for many branches of quantum physics research, most notably quantum computing. By improving quantum dynamics simulation, we can improve the design of quantum computing devices, as well as the performance of devices across a huge range of different applications. Quantum dynamics modeling is important generally across the space of quantum physics research, and rely on the same basic numerical tools. These numerical tools must be efficient in order to allow for larger simulations, and repetative parameter searches.
 
 # Statement of need
 
@@ -72,6 +58,9 @@ visualizations of textbook material [@Binney:2008]. The combination of speed,
 design, and support for Astropy functionality in `Gala` will enable exciting
 scientific explorations of forthcoming data releases from the *Gaia* mission -->
 <!-- [@gaia] by students and experts alike. -->
+# Comparison with other tools
+
+In the quantum computing space, there are a number of tools for simulating quantum dynamics. Many researchers use their own home-grown tools, but the most widely used platform is QuTiP. According to their website, "QuTiP aims to provide user-friendly and efficient numerical simulations of a wide variety of Hamiltonians." QuTiP is a powerful and important tool in the quantum computing research community, and Qiskit Dynamics is not intended as a universal replacement for QuTiP. The core of Qiskit Dynamics is its usage of JAX, a library built by Google for making python functions automatically differentiable and capable of running on GPUs. Using Jax, Qiskit Dynamics enables users to obtain massive speedups on dynamics simulations, by utilizing GPUs. In addition, Qiskit Dynamics allows for easy implementation of certain Quantum Computing transformations, namely the Rotating Frame Transformation and the Rotating Wave Approximation, which can both be implemented in one line. Due to the completely differentiable nature of Qiskit Dynamics, transformations like these are easily implemented, whereas in a tool such as qutip these transformations must be done manually by the user, who must model the transformation themself.
 
 # Mathematics
 
