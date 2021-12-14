@@ -84,7 +84,7 @@ scientific explorations of forthcoming data releases from the *Gaia* mission -->
 
 In the quantum computing space, there are a number of tools for simulating quantum dynamics. Many researchers use their own home-grown tools, but the most widely used platform is QuTiP. According to their website, "QuTiP aims to provide user-friendly and efficient numerical simulations of a wide variety of Hamiltonians." QuTiP is a powerful and important tool in the quantum computing research community, and Qiskit Dynamics is not intended as a universal replacement for QuTiP. The core of Qiskit Dynamics is its usage of JAX, a library built by Google for making python functions automatically differentiable and capable of running on GPUs. Using Jax, Qiskit Dynamics enables users to obtain massive speedups on dynamics simulations, by utilizing GPUs. In addition, Qiskit Dynamics allows for easy implementation of certain Quantum Computing transformations, namely the Rotating Frame Transformation and the Rotating Wave Approximation, which can both be implemented in one line. Due to the completely differentiable nature of Qiskit Dynamics, transformations like these are easily implemented, whereas in a tool such as qutip these transformations must be done manually by the user, who must model the transformation themself.
 
-By using Qiskit Dynamics instead of QuTiP, power users are able to massively accelerate their computations, take advantages of autodifferentiation, and use one-liners to perform rotating frame transformations and change the backend solvers. These tools enable Jax to utilize a GPU to increase performance over the single threaded qutip \ref{fig:jvq-sparse}
+By using Qiskit Dynamics instead of QuTiP, power users are able to massively accelerate their computations, take advantages of autodifferentiation, and use one-liners to perform rotating frame transformations and change the backend solvers. These tools enable Jax to utilize a GPU to increase performance over the single threaded qutip \autoref{fig:jvqsparse}
 
 # Mathematics
 
@@ -123,12 +123,17 @@ Figures can be included like this:
 
 
 <!-- ![Caption for example figure.\label{fig:example}](figure.png) -->
-![Dynamics vs Qutip sparse computation.\label{fig:jvq-sparse}](figures/jax_v_qutip_sparse.png)
-and referenced from text using \autoref{fig:jvq-sparse}.
+
+![Dynamics vs Qutip sparse computation.\label{fig:jvqsparse}](figures/jax_v_qutip_sparse.png)
+
+<!-- 
+and referenced from text using \autoref{fig:jvqsparse}.
 
 Figure sizes can be customized by adding an optional second parameter:
-![Caption for example figure.](figure.png){ width=20% }
-![Time to create the USA road network graph with 23,947,347 nodes and 58,333,344 edges.\label{fig:creation}](figures/jax_v_qutip_sparse.png){ width=90% height=90% }
+<!-- ![Caption for example figure.](figure.png){ width=20% } -->
+
+![Time to create the USA road network graph with 23,947,347 nodes and 58,333,344 edges.\label{fig:creation}](figures/jax_v_qutip_sparse.png){ width=90% height=90% } -->
+
 
 test is \autoref{fig:creation}
 
