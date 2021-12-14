@@ -8,6 +8,23 @@ tags:
   - differential equations
   - jax
 
+authors:
+  - name: Author1^[co-first author] # note this makes a footnote saying 'co-first author'
+    orcid: 0000-0003-0872-7098
+    affiliation: "1, 2" # (Multiple affiliations must be quoted)
+  - name: Author2^[co-first author] # note this makes a footnote saying 'co-first author'
+    affiliation: 2
+  - name: Author with no affiliation^[corresponding author]
+    affiliation: 3
+affiliations:
+ - name: IBM Quantum, IBM T.J. Watson Research Center, Yorktown Heights, USA
+   index: 1
+ - name: Institution Name
+   index: 2
+ - name: Independent Researcher
+   index: 3
+date: 14 December 2021
+bibliography: paper.bib
 
 # Optional fields if submitting to a AAS journal too, see this blog post:
 # https://blog.joss.theoj.org/2018/12/a-new-collaboration-with-aas-publishing
@@ -67,7 +84,7 @@ scientific explorations of forthcoming data releases from the *Gaia* mission -->
 
 In the quantum computing space, there are a number of tools for simulating quantum dynamics. Many researchers use their own home-grown tools, but the most widely used platform is QuTiP. According to their website, "QuTiP aims to provide user-friendly and efficient numerical simulations of a wide variety of Hamiltonians." QuTiP is a powerful and important tool in the quantum computing research community, and Qiskit Dynamics is not intended as a universal replacement for QuTiP. The core of Qiskit Dynamics is its usage of JAX, a library built by Google for making python functions automatically differentiable and capable of running on GPUs. Using Jax, Qiskit Dynamics enables users to obtain massive speedups on dynamics simulations, by utilizing GPUs. In addition, Qiskit Dynamics allows for easy implementation of certain Quantum Computing transformations, namely the Rotating Frame Transformation and the Rotating Wave Approximation, which can both be implemented in one line. Due to the completely differentiable nature of Qiskit Dynamics, transformations like these are easily implemented, whereas in a tool such as qutip these transformations must be done manually by the user, who must model the transformation themself.
 
-By using Qiskit Dynamics instead of QuTiP, power users are able to massively accelerate their computations, take advantages of autodifferentiation, and use one-liners to perform rotating frame transformations and change the backend solvers. These tools enable Jax to utilize a GPU to increase performance over the single threaded qutip \autoref{fig:jvq_sparse}
+By using Qiskit Dynamics instead of QuTiP, power users are able to massively accelerate their computations, take advantages of autodifferentiation, and use one-liners to perform rotating frame transformations and change the backend solvers. These tools enable Jax to utilize a GPU to increase performance over the single threaded qutip \ref{fig:jvq_sparse}
 
 # Mathematics
 
@@ -96,9 +113,9 @@ If you want to cite a software repository URL (e.g. something on GitHub without 
 citation) then you can do it with the example BibTeX entry below for @fidgit.
 
 For a quick reference, the following citation commands can be used:
-- `@author:2001`  ->  "Author et al. (2001)"
+<!-- - `@author:2001`  ->  "Author et al. (2001)"
 - `[@author:2001]` -> "(Author et al., 2001)"
-- `[@author1:2001; @author2:2001]` -> "(Author1 et al., 2001; Author2 et al., 2002)"
+- `[@author1:2001; @author2:2001]` -> "(Author1 et al., 2001; Author2 et al., 2002)" -->
 
 # Figures
 
@@ -107,14 +124,13 @@ Figures can be included like this:
 
 <!-- ![Caption for example figure.\label{fig:example}](figure.png) -->
 ![Dynamics vs Qutip sparse computation.\label{fig:jvq_sparse}](figures/jax_v_qutip_sparse.png)
-and referenced from text using \autoref{fig:example}.
+and referenced from text using \autoref{fig:jvq_sparse}.
 
 Figure sizes can be customized by adding an optional second parameter:
 ![Caption for example figure.](figure.png){ width=20% }
 
 # Acknowledgements
 
-We acknowledge contributions from Brigitta Sipocz, Syrtis Major, and Semyeong
-Oh, and support from Kathryn Johnston during the genesis of this project.
+We acknowledge contributions from Many Good Friends
 
 # References
