@@ -17,7 +17,7 @@ aas-journal: Astrophysical Journal <- The name of the AAS journal.
 
 # Summary
 
-The forces on stars, galaxies, and dark matter under external gravitational
+<!-- The forces on stars, galaxies, and dark matter under external gravitational
 fields lead to the dynamical evolution of structures in the universe. The orbits
 of these bodies are therefore key to understanding the formation, history, and
 future state of galaxies. The field of "galactic dynamics," which aims to model
@@ -25,7 +25,7 @@ the gravitating components of galaxies to study their structure and evolution,
 is now well-established, commonly taught, and frequently used in astronomy.
 Aside from toy problems and demonstrations, the majority of problems require
 efficient numerical tools, many of which require the same base code (e.g., for
-performing numerical orbit integration).
+performing numerical orbit integration). -->
 
 In the field of quantum physics, numerical models of systems often are built around differential equations. Modeling the evolution of quantum systems is a slow and difficult process, which explodes in difficulty as the dimensionality of these systems grows. Modeling quantum systems is a basic research need for many branches of quantum physics research, most notably quantum computing. By improving quantum dynamics simulation, we can improve the design of quantum computing devices, as well as the performance of devices across a huge range of different applications. Quantum dynamics modeling is important generally across the space of quantum physics research, and rely on the same basic numerical tools. These numerical tools must be efficient in order to allow for larger simulations, and repetative parameter searches.
 
@@ -46,7 +46,8 @@ Qiskit Dynamics is an open-source project for building, transforming, and solvin
 
 The goal of Qiskit Dynamics is to provide access to different numerical methods, and to automate common processes typically performed by hand, e.g. entering rotating frames, or doing the rotating wave approximation.
 
-Qiskit Dynamics can be configured to use either NumPy or JAX as the backend for array operations. NumPy is the default, and JAX is an optional dependency, which enables just-in-time compilation, automatic differentiation, and GPU execution of Qiskit Dynamics code.
+Qiskit Dynamics is purpose-built to enable quantum system simulations to use a Jax backend. Google developed Jax to bring together [Autograd](https://github.com/hips/autograd) and [XLA](https://www.tensorflow.org/xla) for machine learning research. The result is a backend which enables fast computation, easily executable on GPUs, while also enabling full automatic differentiation. Any equations modeled in dynamics are automatically differentiated. This autodifferentiation is very important for quantum dynamics research. It massively accelerates gradient-based quantum control, and any general quantum simulation problem which requires differentiation. While there are tools that exist for general quantum systems simulation, Qiskit Dyanmics is designed for the power user who needs to run many simulations or large simulations and will benefit from the huge potential speedup. In addition, the autodifferenntiable nature of Qiskit Dynamics is very important for optimal control research, as well as general problems in the space. Combined with special tools for signals, and the ability to easily choose solvers with one line, Qiskit Dynamics represents a powerful tool for researchers and developers who need to be able to push quantum dynamics simulations to their limits.
+
 
 
 
