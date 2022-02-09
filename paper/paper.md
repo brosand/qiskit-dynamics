@@ -57,68 +57,16 @@ In the quantum computing space, there are several tools for simulating quantum d
 
 The core of Qiskit Dynamics is its usage of JAX, a library built by Google for making python functions automatically differentiable and capable of running on GPUs. Using Jax, Qiskit Dynamics enables users to obtain massive speedups on dynamics simulations, by utilizing GPUs. In addition, Qiskit Dynamics allows for easy implementation of certain Quantum Computing transformations, namely the Rotating Frame Transformation and the Rotating Wave Approximation, which can both be implemented in one line. Due to the completely differentiable nature of Qiskit Dynamics, transformations like these are easily implemented, whereas in a tool such as QuTiP these transformations must be done manually by the user, who must model the transformation themself.
 
-By using Qiskit Dynamics instead of QuTiP, power users can massively accelerate their computations, take advantages of autodifferentiation, and use one-liners to perform rotating frame transformations and change the backend solvers. These tools enable Jax to utilize a GPU to increase performance over the single threaded QuTiP \autoref{fig:jvqsparse}. 
+By using Qiskit Dynamics instead of QuTiP, power users can massively accelerate their computations, take advantages of autodifferentiation, and use one-liners to perform rotating frame transformations and change the backend solvers. These tools enable Jax to utilize a GPU to increase performance over the single threaded QuTiP \autoref{fig:jvqsparse}. (Example obviously)
+![Dynamics vs Qutip sparse computation.\label{fig:jvqsparse}](figures/jax_v_qutip_sparse.png){ }
 
 In addition to the speedup, Qiskit Dynamics has many unique tools which make it a very nice platform for simulating quantum systems. First, the rotating frame transformation and the rotating wave approximation are built into Qiskit Dynamics so that a user can take any quantum system and apply the transformations with one parameter in a `Solver` class. Previously a user would need to perform this calculation analytically for every Hamiltonian, a laborious process.
 
-Finally, we want to highlight the ease of switching ode solvers in Qiskit Dynamics, a single parameter easily changed in the `Solver` class.
+Finally, we want to highlight the ease of switching ode solvers in Qiskit Dynamics, a single parameter easily changed in the `Solver` class. -- not really sure how to highlight this @Dan
 
 
-# Mathematics
-
-The core equation for modeling quantum systems is usually the Hamiltonian. Let us construct this time-dependent hamiltonian:
-
-\begin{equation}\label{eq:hamiltonian}
-H(t) = 2 \pi \nu \frac{Z}{2} + 2 \pi r s(t) \frac{X}{2}
-\end{equation}
-
-
-
-Single dollars ($) are required for inline mathematics e.g. $f(x) = e^{\pi/x}$
-
-Double dollars make self-standing equations:
-
-$$\Theta(x) = \left\{\begin{array}{l}
-0\textrm{ if } x < 0\cr
-1\textrm{ else}
-\end{array}\right.$$
-
-You can also use plain \LaTeX for equations
-\begin{equation}\label{eq:fourier}
-\hat f(\omega) = \int_{-\infty}^{\infty} f(x) e^{i\omega x} dx
-\end{equation}
-and refer to \autoref{eq:fourier} from text.
 
 # Citations
-
-Citations to entries in paper.bib should be in
-[rMarkdown](http://rmarkdown.rstudio.com/authoring_bibliographies_and_citations.html)
-format.
-
-If you want to cite a software repository URL (e.g. something on GitHub without a preferred
-citation) then you can do it with the example BibTeX entry below for @fidgit.
-
-For a quick reference, the following citation commands can be used:
-<!-- - `@author:2001`  ->  "Author et al. (2001)"
-- `[@author:2001]` -> "(Author et al., 2001)"
-- `[@author1:2001; @author2:2001]` -> "(Author1 et al., 2001; Author2 et al., 2002)" -->
-
-<!-- ![Caption for example figure.\label{fig:example}](figure.png) -->
-
-![Dynamics vs Qutip sparse computation.\label{fig:jvqsparse}](figures/jax_v_qutip_sparse.png)
-
-<!-- 
-and referenced from text using \autoref{fig:jvqsparse}.
-
-Figure sizes can be customized by adding an optional second parameter:
-<!-- ![Caption for example figure.](figure.png){ width=20% } -->
-<!-- 
-![Time to create the USA road network graph with 23,947,347 nodes and 58,333,344 edges.\label{fig:creation}](figures/jax_v_qutip_sparse.png){ width=90% height=90% } --> -->
-
-
-<!-- test is \autoref{fig:creation} -->
-
-
 # Acknowledgements
 
 We acknowledge contributions from Many Good Friends
