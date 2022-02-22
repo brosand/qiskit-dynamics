@@ -446,7 +446,7 @@ class TestComputeandSampleProbabilities(QiskitDynamicsTestCase):
 
         self.assertTrue(
             np.allclose(A, B, rtol=rtol, atol=atol),
-            "Floats do not match up: {} and {}".format(A, B),
+            f"Floats do not match up: {A} and {B}",
         )
 
     def assertDictClose(self, dict1, dict2):
@@ -533,7 +533,6 @@ class TestComputeandSampleProbabilities(QiskitDynamicsTestCase):
 
         # self.assertAllClose(probs["12"], 0.5068)
         self.assertAllClose(probs["12"], 0.5068351119601028)
-        # self.assertAllClose(probs["10"], 0.4931)
         self.assertAllClose(probs["10"], 0.4931086543230836)
 
         samples = sample_counts(probs, 1000, seed=RANDOM_SEED)
