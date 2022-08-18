@@ -10,11 +10,16 @@ import qiskit_dynamics.pulse.pulseSimClass
 import importlib
 
 from qiskit import IBMQ, schedule
+#%%
+from qiskit_ibm_provider import IBMProvider
+# IBMProvider.save_account(token='2ea5ea951217c0dd712a85fb93e0dfbc9f22e211b141e86fca50a039627ef60b07f4c2ac5f96207805ae14c17df4e1dd23144dbc6826fc607be539f6041299ce')
 
 #%%
-IBMQ.load_account()
-provider = IBMQ.get_provider(hub='ibm-q-internal', group='deployed', project='default')
-ibm_backend = provider.get_backend('ibm_cairo')
+# provider = IBMProvider.get_provider(hub='ibm-q-internal', group='deployed', project='default')
+# ibm_backend = provider.get_backend('ibmq_manilla')
+provider = IBMProvider()
+ibm_backend = provider.get_backend('ibmq_lima')
+
 #%%
 # ibm_backend = provider.get_backend('fake_ibm_cairo')
 # from qiskit.providers.fake_provider import FakeManila
@@ -25,12 +30,15 @@ ibm_backend = provider.get_backend('ibm_cairo')
 importlib.reload(qiskit_dynamics.pulse.pulseSimClass)
 from qiskit_dynamics.pulse.pulseSimClass import PulseSimulator
 
-backend = PulseSimulator.from_backend(ibm_backend, subsystem_list=[1,2])
+backend = PulseSimulator.from_backend(ibm_backend, subsystem_list=[0,1,2,3,4])
+#%%
+# backend=ibm_backend
 
 cals = Calibrations.from_backend(backend)
 
+# spec = RoughFreqencyCal(qubit, cals, frequencies, backend=backend)
 #%%
-qubit = 0  # The qubit we will work with
+qubit = 1  # The qubit we will work with
 def setup_cals(backend) -> Calibrations:
     """A function to instantiate calibrations and add a couple of template schedules."""
     cals = Calibrations.from_backend(backend)
@@ -77,7 +85,43 @@ cals = Calibrations.from_backend(backend, libraries=[library])
 from qiskit_experiments.library.calibration.rough_frequency import RoughFrequencyCal
 
 #%%
-freq01_estimate = backend.defaults().qubit_freq_est[qubit]
+pd.DataFrame(**cals.parameters_table(qubit_list=[qubit, ()]))
+
+#%%
+freq01_estimate = ibm_backend.defaults().qubit_freq_est[qubit]
 frequencies = np.linspace(freq01_estimate -15e6, freq01_estimate + 15e6, 51)
 spec = RoughFrequencyCal(qubit, cals, frequencies, backend=backend)
 spec.set_experiment_options(amp=0.1)
+# %%
+circuit = spec.circuits()[0]
+circuit.draw(output="mpl")
+
+# %%
+schedule(circuit, backend).draw()
+
+# %%
+spec_data = spec.run().block_for_results()
+
+# %%
+
+#%%
+from qiskit.pulse import library
+
+amp = 1
+sigma = 10
+num_samples = 128
+#%%
+gaus = pulse.library.Gaussian(num_samples, amp, sigma,
+                              name="Parametric Gaus")
+gaus.draw()
+
+# %%
+with pulse.build() as schedule:
+    pulse.play(gaus, backend.drive_channel(0))
+schedule.draw()
+#%%
+backend.run(schedule)
+
+# %%
+a
+# %%

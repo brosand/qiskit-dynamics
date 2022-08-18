@@ -27,7 +27,7 @@ def solver_from_backend(backend: Backend, subsystem_list: list[int]) -> 'PulseSi
     """
 
     if isinstance(backend, BackendV2):
-        ham_dict = backend.hamiltonian()
+        ham_dict = backend.hamiltonian
     else:
         ham_dict = backend.configuration().hamiltonian
     
@@ -41,17 +41,20 @@ def solver_from_backend(backend: Backend, subsystem_list: list[int]) -> 'PulseSi
     )
     return solver
 
+# Do we want the hamiltonian and the operators to be separate?
+# We could also have no init, and just have users init with a solver, or use simulator.from_
 class PulseSimulator(BackendV2):
-    def __init__(self, hamiltonian=None, solver=None, acquire_channels=None, control_channels=None, measure_channels=None, drive_channels=None):
+    def __init__(self, hamiltonian=None, operators=None, solver=None, acquire_channels=None, control_channels=None, measure_channels=None, drive_channels=None):
+        super().__init__()
         if solver is None:
-            self.hamiltonian = hamiltonian
+            self.solver = solver_from_hamiltonian(hamiltonian, operators)
         else:
             self.solver = solver
-        self.acquire_channels = acquire_channels
-        self.control_channels = control_channels
-        self.measure_channels = measure_channels
-        self.drive_channels = drive_channels
-        self.control_channels = control_channels
+        # self.acquire_channels = acquire_channels
+        # self.control_channels = control_channels
+        # self.measure_channels = measure_channels
+        # self.drive_channels = drive_channels
+        # self.control_channels = control_channels
         # self.coupling_map = coupling_map
 
     @classmethod
@@ -72,6 +75,16 @@ class PulseSimulator(BackendV2):
             pulseSim.target.qubit_properties = [pulseSim.qubit_properties(i) if i in subsystem_list else None for i in range(backend.configuration().n_qubits)]
         else:
             pulseSim.qubit_properties = backend.qubit_properties
+            pulseSim.target = backend.target
+            pulseSim.drive_channel = backend.drive_channel
+            pulseSim.control_channel = backend.control_channel
+
+            # pulseSim.target = Target()
+            # pulseSim.target.qubit_properties = [pulseSim.qubit_properties(i) if i in subsystem_list else None for i in range(backend.configuration().n_qubits)]
+            # pulseSim.target.dt = backend.dt
+            pulseSim._dtm = backend.dtm
+            pulseSim._meas_map = backend.meas_map
+            pulseSim.base_backend = backend
         return pulseSim
     
         # Set various attributes from backend
@@ -94,13 +107,39 @@ class PulseSimulator(BackendV2):
     #     return self.base_backend.qubit_properties(qubit)
     
     def run(self, run_input: Union[QuantumCircuit, Schedule, ScheduleBlock], **options) -> Result:
+        return super().run(run_input, **options)
+
+    def run(self, run_input, **options):
+        """Run on the backend.
+
+        This method returns a :class:`~qiskit.providers.Job` object
+        that runs circuits. Depending on the backend this may be either an async
+        or sync call. It is at the discretion of the provider to decide whether
+        running should block until the execution is finished or not: the Job
+        class can handle either situation.
+
+        Args:
+            run_input (QuantumCircuit or Schedule or ScheduleBlock or list): An
+                individual or a list of
+                :class:`~qiskit.circuits.QuantumCircuit,
+                :class:`~qiskit.pulse.ScheduleBlock`, or
+                :class:`~qiskit.pulse.Schedule` objects to run on the backend.
+            options: Any kwarg options to pass to the backend for running the
+                config. If a key is also present in the options
+                attribute/object then the expectation is that the value
+                specified will be used instead of what's set in the options
+                object.
+        Returns:
+            Job: The job object for the run
+        """
         pass
+
 
     def get_solver(self):
         return self.solver
     
-    def target(self):
-        return Target()
+    # def target(self):
+    #     return Target()
 
     def _default_options(self):
         pass
@@ -108,6 +147,39 @@ class PulseSimulator(BackendV2):
     def max_circuits(self):
         pass
 
+    @property
+    def dtm(self) -> float:
+        """Return the system time resolution of output signals
+
+        Returns:
+            dtm: The output signal timestep in seconds.
+
+        Raises:
+            NotImplementedError: if the backend doesn't support querying the
+                output signal timestep
+        """
+        return self._dtm
+
+
+    @property
+    def meas_map(self) -> list[list[int]]:
+        """Return the grouping of measurements which are multiplexed
+
+        This is required to be implemented if the backend supports Pulse
+        scheduling.
+
+        Returns:
+            meas_map: The grouping of measurements which are multiplexed
+
+        Raises:
+            NotImplementedError: if the backend doesn't support querying the
+                measurement mapping
+        """
+        return self._meas_map
+    
+
+
+ 
 # Below is for the case of a custom hamiltonian (separated temporarily)
 class PulseSimulator1(BackendV2):
     def __init__(self, hamiltonian,acquire_channels=None, control_channels=None, measure_channels=None, drive_channels=None) -> None:
