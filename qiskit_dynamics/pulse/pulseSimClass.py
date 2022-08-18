@@ -2,7 +2,8 @@
 from typing import Dict, Iterable, Optional, Union
 from qiskit.test.mock import FakeVigo
 import numpy as np
-device_backend = FakeVigo()
+
+from .pulse_to_signals import InstructionToSignals
 
 #%%
 # from typing import Union
@@ -13,7 +14,7 @@ from qiskit_dynamics import Solver
 from qiskit_dynamics.pulse.backend_parser.string_model_parser import parse_hamiltonian_dict
 
 from qiskit.circuit import QuantumCircuit
-from qiskit.pulse import Schedule, ScheduleBlock
+from qiskit.pulse import Schedule, ScheduleBlock, block_to_schedule
 
 from qiskit.transpiler import Target
 from qiskit.result import Result
@@ -41,15 +42,28 @@ def solver_from_backend(backend: Backend, subsystem_list: list[int]) -> 'PulseSi
     )
     return solver
 
+def solver_from_hamiltonian(static_hamiltonian, hamiltonian_operators, dt) -> 'PulseSimulator':
+    """
+    Create a solver object from a hamiltonian.
+    :param static_hamiltonian: The static hamiltonian.
+    :param hamiltonian_operators: The hamiltonian operators.
+    :return: A Solver object.
+    """
+
+    solver = Solver(
+        static_hamiltonian=static_hamiltonian,
+        hamiltonian_operators=hamiltonian_operators,
+        rotating_frame=np.diag(static_hamiltonian),
+        dt=dt
+    )
+    return solver
+
 # Do we want the hamiltonian and the operators to be separate?
 # We could also have no init, and just have users init with a solver, or use simulator.from_
 class PulseSimulator(BackendV2):
-    def __init__(self, hamiltonian=None, operators=None, solver=None, acquire_channels=None, control_channels=None, measure_channels=None, drive_channels=None):
+    def __init__(self, solver, acquire_channels=None, control_channels=None, measure_channels=None, drive_channels=None):
         super().__init__()
-        if solver is None:
-            self.solver = solver_from_hamiltonian(hamiltonian, operators)
-        else:
-            self.solver = solver
+        self.solver = solver
         # self.acquire_channels = acquire_channels
         # self.control_channels = control_channels
         # self.measure_channels = measure_channels
@@ -86,6 +100,16 @@ class PulseSimulator(BackendV2):
             pulseSim._meas_map = backend.meas_map
             pulseSim.base_backend = backend
         return pulseSim
+    
+    @classmethod
+    def from_hamiltonian(self, static_hamiltonian, hamiltonian_operators, dt) -> 'PulseSimulator':
+        """
+        Create a `PulseSimulator` object from a hamiltonian.
+        :param static_hamiltonian: The static hamiltonian.
+        :param hamiltonian_operators: The hamiltonian operators."""
+
+        pulseSim = PulseSimulator(solver=solver_from_hamiltonian(static_hamiltonian, hamiltonian_operators), dt=dt)
+        pulseSim.target = Target()
     
         # Set various attributes from backend
         # Instantiate a `Qiskit-Dynamics` solver
@@ -132,7 +156,24 @@ class PulseSimulator(BackendV2):
         Returns:
             Job: The job object for the run
         """
-        pass
+
+        if isinstance(run_input, QuantumCircuit):
+            raise NotImplementedError('Pulse Simulator does not currently support quantum circuits')
+        elif isinstance(run_input, ScheduleBlock):
+            run_input = block_to_schedule(run_input)
+        elif isinstance(run_input, Schedule):
+            pass
+        else:
+            raise NotImplementedError(f'Pulse Simulator does not currently support run inputs of type {type(run_input)}')
+        
+        # Convert the schedule to signals
+        signalMapper = InstructionToSignals(self.dt, carriers=self.carrier_freqs, channels=self.channel_list)
+
+        signals = signalMapper.get_signals(run_input)
+        sol = self.solver.solve(t_span=None, y0=None, signals=signals)
+        result = Result(self.target, run_input, sol)
+        # Run the schedule
+
 
 
     def get_solver(self):
