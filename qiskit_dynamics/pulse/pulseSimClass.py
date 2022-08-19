@@ -1,7 +1,9 @@
 #%%
-from typing import Dict, Iterable, Optional, Union
+from typing import Dict, Iterable, List, Optional, Union
 from qiskit.test.mock import FakeVigo
 import numpy as np
+from scipy.integrate._ivp.ivp import OdeResult  # pylint: disable=unused-import
+from qiskit.result.models import ExperimentResult, Result
 
 from .pulse_to_signals import InstructionToSignals
 
@@ -18,6 +20,21 @@ from qiskit.pulse import Schedule, ScheduleBlock, block_to_schedule
 
 from qiskit.transpiler import Target
 from qiskit.result import Result
+
+def get_counts(state_vector: np.ndarray) -> Dict[str, int]:
+    """
+    Get the counts from a state vector.
+    :param state_vector: The state vector.
+    :return: The counts.
+    """
+
+    counts = {}
+    for i, state in enumerate(state_vector):
+        if state == 1:
+            counts[f'0{i}'] = 1
+        elif state == -1:
+            counts[f'1{i}'] = 1
+    return counts
 
 def solver_from_backend(backend: Backend, subsystem_list: list[int]) -> 'PulseSimulator':
     """
@@ -57,6 +74,48 @@ def solver_from_hamiltonian(static_hamiltonian, hamiltonian_operators, dt) -> 'P
         dt=dt
     )
     return solver
+
+def ExperimentResult_from_sol(sol: OdeResult, return_type: str) -> ExperimentResult:
+    """
+    Get the data from a solver object.
+    :param sol: The solver object.
+    :param return_type: The type of data to return.
+    :return: ExperimentResult.
+    """
+
+    if return_type == 'state_vector':
+        result_data = {'state_vector': sol.y}
+    elif return_type == 'unitary':
+        result_data = {'unitary': sol.y}
+    elif return_type == 'counts':
+        result_data = {'counts': get_counts(sol.y)}
+    else:
+        raise NotImplementedError(f"Return type {return_type} not implemented.")
+
+
+    return ExperimentResult.from_dict(result_data)
+
+def result_from_sol(sol: Union[OdeResult, List[OdeResult]]) -> Result:
+    """
+    Create a result object from a solver object.
+    :param sol: The solver object.
+    :return: A Result object.
+    """
+
+
+    if isinstance(sol, list):
+        result = Result()
+        for s in sol:
+            s = get_data_from_sol(s)
+            result.add_counts(s.counts)
+            result.add_data(s.data)
+            result.add_final_state(s.final_state)
+            result.add_initial_state(s.initial_state)
+            result.add_time(s.time)
+    else:
+        sol = get_data_from_sol(sol)
+        result = Result(counts=sol.counts, data=sol.data, final_state=sol.final_state, initial_state=sol.initial_state, time=sol.time)
+    return result
 
 # Do we want the hamiltonian and the operators to be separate?
 # We could also have no init, and just have users init with a solver, or use simulator.from_
@@ -171,7 +230,7 @@ class PulseSimulator(BackendV2):
 
         signals = signalMapper.get_signals(run_input)
         sol = self.solver.solve(t_span=None, y0=None, signals=signals)
-        result = Result(self.target, run_input, sol)
+        result = result_from_sol(sol, output_type, **kwargs)
         # Run the schedule
 
 
@@ -179,9 +238,6 @@ class PulseSimulator(BackendV2):
     def get_solver(self):
         return self.solver
     
-    # def target(self):
-    #     return Target()
-
     def _default_options(self):
         pass
     
@@ -217,38 +273,3 @@ class PulseSimulator(BackendV2):
                 measurement mapping
         """
         return self._meas_map
-    
-
-
- 
-# Below is for the case of a custom hamiltonian (separated temporarily)
-class PulseSimulator1(BackendV2):
-    def __init__(self, hamiltonian,acquire_channels=None, control_channels=None, measure_channels=None, drive_channels=None) -> None:
-        self.hamiltonian = hamiltonian
-        self.acquire_channels = acquire_channels
-        self.control_channels = control_channels
-        self.measure_channels = measure_channels
-        self.drive_channels = drive_channels
-
-    
-        # Set various attributes from backend
-        # Instantiate a `Qiskit-Dynamics` solver
-        # set an attribute for the subsystem of the device to simulate
-    
-    def acquire_channel(self, qubit: int) -> AcquireChannel:
-        return self.acquire_channels[qubit]
-    
-    def drive_channel(self, qubit: int) -> DriveChannel:
-        return self.drive_channels[qubit]
-
-    def control_channel(self, qubit: int) -> ControlChannel:
-        return self.control_channels[qubit]
-    
-    def measure_channel(self, qubit: int) -> MeasureChannel:
-        return self.measure_channels[qubit]
-    
-    def qubit_properties(self, qubit: int) -> dict:
-        return self.base_backend.qubit_properties(qubit)
-    
-    def run(self, run_input: Union[QuantumCircuit, Schedule, ScheduleBlock], **options) -> Result:
-        pass
