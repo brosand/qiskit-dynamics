@@ -43,7 +43,7 @@ def validate_experiments(experiment):
     elif isinstance(experiment, ScheduleBlock):
         return "Success"
     else: 
-        return f"Experiment type {type(experiment} not yet supported"
+        return f"Experiment type {type(experiment)} not yet supported"
 def get_counts(state_vector: np.ndarray, n_shots: int, seed: int) -> Dict[str, int]:
     """
     Get the counts from a state vector.
