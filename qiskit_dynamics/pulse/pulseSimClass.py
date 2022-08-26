@@ -1,9 +1,14 @@
 #%%
+from qiskit import QiskitError
+import uuid
+from random import sample
+import datetime
+import time
 from typing import Dict, Iterable, List, Optional, Union
 from qiskit.test.mock import FakeVigo
 import numpy as np
 from scipy.integrate._ivp.ivp import OdeResult  # pylint: disable=unused-import
-from qiskit.result.models import ExperimentResult, Result
+from qiskit.result.models import ExperimentResult#, Result
 
 from .pulse_to_signals import InstructionToSignals
 
@@ -16,27 +21,25 @@ from qiskit_dynamics import Solver
 from qiskit_dynamics.pulse.backend_parser.string_model_parser import parse_hamiltonian_dict
 
 from qiskit.circuit import QuantumCircuit
-from qiskit.pulse import Schedule, ScheduleBlock, block_to_schedule
+from qiskit.pulse import Schedule, ScheduleBlock#, block_to_schedule
 
 from qiskit.transpiler import Target
 from qiskit.result import Result
 
-def get_counts(state_vector: np.ndarray) -> Dict[str, int]:
+from qiskit_dynamics.pulse.pulse_utils import sample_counts, compute_probabilities, convert_to_dressed
+
+def get_counts(state_vector: np.ndarray, n_shots: int, seed: int) -> Dict[str, int]:
     """
     Get the counts from a state vector.
     :param state_vector: The state vector.
     :return: The counts.
     """
-
-    counts = {}
-    for i, state in enumerate(state_vector):
-        if state == 1:
-            counts[f'0{i}'] = 1
-        elif state == -1:
-            counts[f'1{i}'] = 1
+    
+    probs = compute_probabilities(state_vector, basis_states=convert_to_dressed(static_ham, subsystem_dims=subsystem_dims))
+    counts = sample_counts(probs,n_shots=n_shots,seed=seed)
     return counts
 
-def solver_from_backend(backend: Backend, subsystem_list: list[int]) -> 'PulseSimulator':
+def solver_from_backend(backend: Backend, subsystem_list: List[int]) -> 'PulseSimulator':
     """
     Create a solver object from a backend.
     :param backend: The backend to use.
@@ -120,7 +123,7 @@ def result_from_sol(sol: Union[OdeResult, List[OdeResult]]) -> Result:
 # Do we want the hamiltonian and the operators to be separate?
 # We could also have no init, and just have users init with a solver, or use simulator.from_
 class PulseSimulator(BackendV2):
-    def __init__(self, solver, acquire_channels=None, control_channels=None, measure_channels=None, drive_channels=None):
+    def __init__(self, solver: Solver, acquire_channels=None, control_channels=None, measure_channels=None, drive_channels=None):
         super().__init__()
         self.solver = solver
         # self.acquire_channels = acquire_channels
@@ -131,14 +134,14 @@ class PulseSimulator(BackendV2):
         # self.coupling_map = coupling_map
 
     @classmethod
-    def from_backend(self, backend: BackendV2, subsystem_list: Optional[list[int]] = None) -> 'PulseSimulator':
+    def from_backend(cls, backend: BackendV2, subsystem_list: Optional[List[int]] = None) -> 'PulseSimulator':
         """
         Create a PulseSimulator object from a backend.
         :param backend: The backend to use.
         :param subsystem_list: The qubits to use for the simulation.
         :return: A PulseSimulator object.
         """
-        pulseSim = PulseSimulator(solver=solver_from_backend(backend, subsystem_list))
+        pulseSim = cls(solver=solver_from_backend(backend, subsystem_list))
         pulseSim.subsystem_list = subsystem_list
         pulseSim.solver = solver_from_backend(backend, subsystem_list)
         pulseSim.name = backend.name
@@ -185,9 +188,6 @@ class PulseSimulator(BackendV2):
     
     def measure_channel(self, qubit: int) -> Union[int, MeasureChannel, None]:
         return self.base_backend.measure_channel(qubit)
-    
-    # def qubit_properties(self, qubit: int):
-    #     return self.base_backend.qubit_properties(qubit)
     
     def run(self, run_input: Union[QuantumCircuit, Schedule, ScheduleBlock], **options) -> Result:
         return super().run(run_input, **options)
@@ -244,6 +244,9 @@ class PulseSimulator(BackendV2):
     def max_circuits(self):
         pass
 
+    def target(self):
+        pass
+
     @property
     def dtm(self) -> float:
         """Return the system time resolution of output signals
@@ -259,7 +262,7 @@ class PulseSimulator(BackendV2):
 
 
     @property
-    def meas_map(self) -> list[list[int]]:
+    def meas_map(self) -> List[List[int]]:
         """Return the grouping of measurements which are multiplexed
 
         This is required to be implemented if the backend supports Pulse
@@ -273,3 +276,148 @@ class PulseSimulator(BackendV2):
                 measurement mapping
         """
         return self._meas_map
+    
+    def run(self,
+        circuits,
+        validate=False,
+        parameter_binds=None,
+        **run_options):
+        """Run a qobj on the backend.
+
+        Args:
+            circuits (QuantumCircuit or list): The QuantumCircuit (or list
+                of QuantumCircuit objects) to run
+            validate (bool): validate the Qobj before running (default: False).
+            parameter_binds (list): A list of parameter binding dictionaries.
+                                    See additional information (default: None).
+            run_options (kwargs): additional run time backend options.
+
+        Returns:
+            AerJob: The simulation job.
+
+        Raises:
+            AerError: If ``parameter_binds`` is specified with a qobj input or has a
+                length mismatch with the number of circuits.
+
+        Additional Information:
+            * Each parameter binding dictionary is of the form::
+
+                {
+                    param_a: [val_1, val_2],
+                    param_b: [val_3, val_1],
+                }
+
+              for all parameters in that circuit. The length of the value
+              list must be the same for all parameters, and the number of
+              parameter dictionaries in the list must match the length of
+              ``circuits`` (if ``circuits`` is a single ``QuantumCircuit``
+              object it should a list of length 1).
+            * kwarg options specified in ``run_options`` will temporarily override
+              any set options of the same name for the current run.
+
+        Raises:
+            ValueError: if run is not implemented
+        """
+        # if isinstance(circuits, (QasmQobj, PulseQobj)):
+        #     warnings.warn(
+        #         'Using a qobj for run() is deprecated as of qiskit-aer 0.9.0'
+        #         ' and will be removed no sooner than 3 months from that release'
+        #         ' date. Transpiled circuits should now be passed directly using'
+        #         ' `backend.run(circuits, **run_options).',
+        #         DeprecationWarning, stacklevel=2)
+        #     if parameter_binds:
+        #         raise AerError("Parameter binds can't be used with an input qobj")
+            # A work around to support both qobj options and run options until
+            # qobj is deprecated is to copy all the set qobj.config fields into
+            # run_options that don't override existing fields. This means set
+            # run_options fields will take precidence over the value for those
+            # fields that are set via assemble.
+        experiments = self._transpile(circuits)# unsure something like this, convert whatever input to the schedules I guess
+        validation = validate_experiments(experiments)
+        if validation != "success":
+            raise QiskitError(f"Validation of experiment failed with error message: {validation}")
+
+        job_id = str(uuid.uuid4())
+        # if isinstance(experiments, list):
+        #     aer_job = AerJobSet(self, job_id, self._run, experiments, executor)
+        # else:
+        pulse_job = pulseJob(self, job_id, self._run, experiments)
+        pulse_job.submit(experiments)
+
+        return pulse_job
+    def _run(self, experiments, job_id='', format_result=True):
+        """Run a job"""
+        # Start timer
+        start = time.time()
+
+        # # Take metadata from headers of experiments to work around JSON serialization error
+        # metadata_list = []
+        # metadata_index = 0
+        # for expr in qobj.experiments:
+        #     if hasattr(expr.header, "metadata"):
+        #         metadata_copy = expr.header.metadata.copy()
+        #         metadata_list.append(metadata_copy)
+        #         expr.header.metadata.clear()
+        #         if "id" in metadata_copy:
+        #             expr.header.metadata["id"] = metadata_copy["id"]
+        #         expr.header.metadata["metadata_index"] = metadata_index
+                # metadata_index += 1
+
+        # Run simulation
+        output = self._execute(experiments)
+
+        # Recover metadata
+        # metadata_index = 0
+        # for expr in qobj.experiments:
+        #     if hasattr(expr.header, "metadata"):
+        #         expr.header.metadata.clear()
+        #         expr.header.metadata.update(metadata_list[metadata_index])
+        #         metadata_index += 1
+
+        # Validate output
+        if not isinstance(output, dict):
+            logger.error("%s: simulation failed.", self.name())
+            if output:
+                logger.error('Output: %s', output)
+            raise AerError(
+                "simulation terminated without returning valid output.")
+
+        # Format results
+        output["job_id"] = job_id
+        output["date"] = datetime.datetime.now().isoformat()
+        output["backend_name"] = self.name()
+        output["backend_version"] = self.configuration().backend_version
+
+        # Add execution time
+        output["time_taken"] = time.time() - start
+
+        # Display warning if simulation failed
+        if not output.get("success", False):
+            msg = "Simulation failed"
+            if "status" in output:
+                msg += f" and returned the following error message:\n{output['status']}"
+            logger.warning(msg)
+        if format_result:
+            return self._format_results(output)
+        return output
+    
+    def _execute(self, schedule: Schedule):
+        return format_output(self.solver.solve(t_span = self.t_span, y0=self.y0, signals=schedule))
+
+
+from qiskit.providers import JobV1 as Job
+class pulseJob(Job):
+    def __init__(self, backend: Backend, job_id: str, **kwargs) -> None:
+        super().__init__(backend=backend, job_id=job_id, **kwargs)
+    
+    @requires_submit
+    def submit(self, exp):
+        self.result = self.backend.run(exp)
+
+    @requires_submit
+    def result(self):
+        return self.result
+    
+    def status(self):
+        raise NotImplementedError
+

@@ -32,6 +32,10 @@ from qiskit_dynamics.pulse.pulseSimClass import PulseSimulator
 
 backend = PulseSimulator.from_backend(ibm_backend, subsystem_list=[0,1,2,3,4])
 #%%
+from qiskit_dynamics.pulse.pulseSimClass import solver_from_backend
+subsystem_list=[0,1,2,3,4]
+pulseSim = PulseSimulator(solver=solver_from_backend(ibm_backend, subsystem_list))
+#%%
 # backend=ibm_backend
 
 cals = Calibrations.from_backend(backend)
