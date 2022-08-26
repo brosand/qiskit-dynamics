@@ -9,6 +9,7 @@ from qiskit.test.mock import FakeVigo
 import numpy as np
 from scipy.integrate._ivp.ivp import OdeResult  # pylint: disable=unused-import
 from qiskit.result.models import ExperimentResult#, Result
+import logging
 
 from .pulse_to_signals import InstructionToSignals
 
@@ -27,6 +28,9 @@ from qiskit.transpiler import Target
 from qiskit.result import Result
 
 from qiskit_dynamics.pulse.pulse_utils import sample_counts, compute_probabilities, convert_to_dressed
+
+#Logger
+logger = logging.getLogger(__name__)
 
 def get_counts(state_vector: np.ndarray, n_shots: int, seed: int) -> Dict[str, int]:
     """
@@ -59,22 +63,6 @@ def solver_from_backend(backend: Backend, subsystem_list: List[int]) -> 'PulseSi
         static_hamiltonian=static_hamiltonian,
         hamiltonian_operators=hamiltonian_operators,
         rotating_frame=np.diag(static_hamiltonian)
-    )
-    return solver
-
-def solver_from_hamiltonian(static_hamiltonian, hamiltonian_operators, dt) -> 'PulseSimulator':
-    """
-    Create a solver object from a hamiltonian.
-    :param static_hamiltonian: The static hamiltonian.
-    :param hamiltonian_operators: The hamiltonian operators.
-    :return: A Solver object.
-    """
-
-    solver = Solver(
-        static_hamiltonian=static_hamiltonian,
-        hamiltonian_operators=hamiltonian_operators,
-        rotating_frame=np.diag(static_hamiltonian),
-        dt=dt
     )
     return solver
 
@@ -123,9 +111,31 @@ def result_from_sol(sol: Union[OdeResult, List[OdeResult]]) -> Result:
 # Do we want the hamiltonian and the operators to be separate?
 # We could also have no init, and just have users init with a solver, or use simulator.from_
 class PulseSimulator(BackendV2):
-    def __init__(self, solver: Solver, acquire_channels=None, control_channels=None, measure_channels=None, drive_channels=None):
+    # def __init__(self, solver: Solver, acquire_channels=None, control_channels=None, measure_channels=None, drive_channels=None):
+    def __init__(self, solver: Solver=None, static_hamiltonian=None, hamiltonian_operators=None, dt=None, acquire_channels=None, control_channels=None, measure_channels=None, drive_channels=None):
+        if Solver is None:
+            if static_hamiltonian is None:
+                raise QiskitError("Static hamiltonian must be defined")
+            if hamiltonian_operators is None:
+                raise QiskitError("Hamiltonian operators must be defined")
+            if dt is None:
+                raise QiskitError("dt must be defined")
+            self.solver = Solver(
+                static_hamiltonian=static_hamiltonian,
+                hamiltonian_operators=hamiltonian_operators,
+                rotating_frame=np.diag(static_hamiltonian),
+                dt=dt
+            )
+        else:
+            if static_hamiltonian is not None:
+                logger.warn("Solver arg used, passing in static_hamiltonian will have no effect")
+            if hamiltonian_operators is not None:
+                logger.warn("Solver arg used, passing in hamiltonian_operators will have no effect")
+            if dt is not None:
+                logger.warn("Solver arg used, passing in dt will have no effect")
+            self.solver = solver
         super().__init__()
-        self.solver = solver
+
         # self.acquire_channels = acquire_channels
         # self.control_channels = control_channels
         # self.measure_channels = measure_channels
