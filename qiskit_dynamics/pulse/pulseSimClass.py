@@ -42,7 +42,7 @@ def validate_experiments(experiment):
         return "Success"
     elif isinstance(experiment, ScheduleBlock):
         return "Success"
-    else: 
+    else:
         return f"Experiment type {type(experiment)} not yet supported"
 def get_counts(state_vector: np.ndarray, n_shots: int, seed: int) -> Dict[str, int]:
     """
@@ -148,8 +148,6 @@ class PulseSimulator(BackendV2):
             self.solver = solver
         super().__init__()
 
-
-
     @classmethod
     def from_backend(cls, backend: BackendV2, subsystem_list: Optional[List[int]] = None) -> 'PulseSimulator':
         """
@@ -177,20 +175,6 @@ class PulseSimulator(BackendV2):
             pulseSim._meas_map = backend.meas_map
             pulseSim.base_backend = backend
         return pulseSim
-    
-    @classmethod
-    def from_hamiltonian(self, static_hamiltonian, hamiltonian_operators, dt) -> 'PulseSimulator':
-        """
-        Create a `PulseSimulator` object from a hamiltonian.
-        :param static_hamiltonian: The static hamiltonian.
-        :param hamiltonian_operators: The hamiltonian operators."""
-
-        pulseSim = PulseSimulator(solver=solver_from_hamiltonian(static_hamiltonian, hamiltonian_operators), dt=dt)
-        pulseSim.target = Target()
-    
-        # Set various attributes from backend
-        # Instantiate a `Qiskit-Dynamics` solver
-        # set an attribute for the subsystem of the device to simulate
     
     def acquire_channel(self, qubit: Iterable[int]) -> Union[int, AcquireChannel, None]:
         return self._acquire_channel(qubit)
