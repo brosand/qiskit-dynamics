@@ -1,17 +1,18 @@
 #%%
+from functools import reduce
 from qiskit import QiskitError
 import uuid
 from random import sample
 import datetime
 import time
 from typing import Dict, Iterable, List, Optional, Union
-from qiskit.test.mock import FakeVigo
 import numpy as np
 from scipy.integrate._ivp.ivp import OdeResult  # pylint: disable=unused-import
 from qiskit.result.models import ExperimentResult#, Result
 import logging
+from qiskit.compiler import transpile
 
-from .pulse_to_signals import InstructionToSignals
+from .utils import requires_submit
 
 #%%
 # from typing import Union
@@ -32,6 +33,11 @@ from qiskit_dynamics.pulse.pulse_utils import sample_counts, compute_probabiliti
 #Logger
 logger = logging.getLogger(__name__)
 
+def pad_schedules(backend, schedules):
+    return schedules
+
+
+
 def validate_experiments(experiment):
     if isinstance(experiment, list):
         if isinstance(experiment[0], Schedule):
@@ -41,6 +47,8 @@ def validate_experiments(experiment):
     elif isinstance(experiment, Schedule):
         return "Success"
     elif isinstance(experiment, ScheduleBlock):
+        return "Success"
+    elif isinstance(experiment, QuantumCircuit):
         return "Success"
     else:
         return f"Experiment type {type(experiment)} not yet supported"
@@ -70,11 +78,26 @@ def solver_from_backend(backend: Backend, subsystem_list: List[int]) -> 'PulseSi
     
     static_hamiltonian, hamiltonian_operators, reduced_channels, subsystem_dims = parse_hamiltonian_dict(ham_dict, subsystem_list)
     
+    # Remove control channels until I figure them out
+    drive_channels = [chan for chan in reduced_channels if 'd' in chan]
+    control_channels = [chan for chan in reduced_channels if 'u' in chan]
 
+    channel_freq_dict = {channel: freq for channel, freq in zip(reduced_channels, [freq for i,freq in enumerate(backend.defaults().qubit_freq_est) if i in subsystem_list])}
+    # control_freq_dict = {channel: freq for }
+    for edge in backend.coupling_map.get_edges():
+        channel_freq_dict[backend.control_channel(edge)[0].name] = backend.defaults().qubit_freq_est[edge[0]]
+    
+    channel_freq_dict
+
+
+    
     solver = Solver(
         static_hamiltonian=static_hamiltonian,
         hamiltonian_operators=hamiltonian_operators,
-        rotating_frame=np.diag(static_hamiltonian)
+        rotating_frame=np.diag(static_hamiltonian),
+        dt = backend.dt,
+        hamiltonian_channels=reduced_channels,
+        channel_carrier_freqs=channel_freq_dict
     )
     return solver
 
@@ -188,7 +211,7 @@ class PulseSimulator(BackendV2):
     def measure_channel(self, qubit: int) -> Union[int, MeasureChannel, None]:
         return self._measure_channel(qubit)
     
-    def run(self, run_input: Union[QuantumCircuit, Schedule, ScheduleBlock], **options) -> Result:
+    def run(self, run_input: Union[QuantumCircuit, Schedule, ScheduleBlock], y0, t_span, **options) -> Result:
         """Run on the backend.
 
         This method returns a :class:`~qiskit.providers.Job` object
@@ -212,38 +235,31 @@ class PulseSimulator(BackendV2):
             Job: The job object for the run
         """
 
-        # TODO move to validator
-        if isinstance(run_input, QuantumCircuit):
-            raise NotImplementedError('Pulse Simulator does not currently support quantum circuits')
-        # elif isinstance(run_input, ScheduleBlock):
-        #     run_input = block_to_schedule(run_input)
-        elif isinstance(run_input, Schedule):
-            pass
-        else:
-            raise NotImplementedError(f'Pulse Simulator does not currently support run inputs of type {type(run_input)}')
-        
-        # Convert the schedule to signals
-        # signalMapper = InstructionToSignals(self.dt, carriers=self.carrier_freqs, channels=self.channel_list)
-
-        # signals = signalMapper.get_signals(run_input)
-        # sol = self.solver.solve(t_span=None, y0=None, signals=run_input)
-        # result = result_from_sol(sol, output_type, **kwargs)
-
         # Run the schedule
-        experiments = self._transpile(circuits)# unsure something like this, convert whatever input to the schedules I guess
-        validation = validate_experiments(experiments)
-        if validation != "success":
+
+        validation = validate_experiments(run_input)
+        if validation != "Success":
             raise QiskitError(f"Validation of experiment failed with error message: {validation}")
+        # Transpile the circuits? Do we validate before transpilation? what doe transpilation even mean here?
+        # experiments = self._transpile(run_input)# unsure something like this, convert whatever input to the schedules I guess
+        if isinstance(run_input, QuantumCircuit):
+            raise NotImplementedError("No quantum circuits yet")
+            experiments = transpile(run_input, backend=self)
+        else:
+            experiments = run_input
 
         job_id = str(uuid.uuid4())
-        # if isinstance(experiments, list):
-        #     aer_job = AerJobSet(self, job_id, self._run, experiments, executor)
-        # else:
-        pulse_job = pulseJob(self, job_id, self._run, experiments)
-        pulse_job.submit(experiments)
+        # pulse_job = pulseJob(experiments=experiments, backend=self, job_id=job_id)
+        # pulse_job.submit()
+        # print(experiments)
+        output = self._run(experiments, y0, t_span, job_id)
+        return output
+        
 
-        return pulse_job
-    def _run(self, experiments, job_id='', format_result=True):
+        # return pulse_job
+
+
+    def _run(self, experiments, y0, t_span, job_id='', format_result=True,):
         """Run a job"""
         # Start timer
         start = time.time()
@@ -262,7 +278,9 @@ class PulseSimulator(BackendV2):
                 # metadata_index += 1
 
         # Run simulation
-        output = self._execute(experiments)
+        # schedules = pad_schedules(self, schedules)
+        # schedu
+        output = self._execute(experiments, y0=y0, t_span=t_span)
 
         # Recover metadata
         # metadata_index = 0
@@ -277,7 +295,7 @@ class PulseSimulator(BackendV2):
             logger.error("%s: simulation failed.", self.name())
             if output:
                 logger.error('Output: %s', output)
-            raise AerError(
+            raise QiskitError(
                 "simulation terminated without returning valid output.")
 
         # Format results
@@ -299,8 +317,8 @@ class PulseSimulator(BackendV2):
             return self._format_results(output)
         return output
     
-    def _execute(self, schedule: Schedule):
-        return format_output(self.solver.solve(t_span = self.t_span, y0=self.y0, signals=schedule))
+    def _execute(self, schedule: Schedule, y0, t_span):
+        return ExperimentResult_from_sol(self.solver.solve(t_span = t_span, y0=y0, signals=schedule))
 
     def get_solver(self):
         return self.solver
@@ -316,7 +334,7 @@ class PulseSimulator(BackendV2):
 
     @property
     def dtm(self) -> float:
-        """Return the system time resolution of output signals
+        """Return the system time resolGution of output signals
 
         Returns:
             dtm: The output signal timestep in seconds.
@@ -347,18 +365,95 @@ class PulseSimulator(BackendV2):
 
 
 from qiskit.providers import JobV1 as Job
+from qiskit.providers import JobStatus, JobError
+from .utils import DEFAULT_EXECUTOR, requires_submit
 class pulseJob(Job):
-    def __init__(self, backend: Backend, job_id: str, **kwargs) -> None:
+    def __init__(self, experiments, backend: Backend, job_id: str, **kwargs) -> None:
         super().__init__(backend=backend, job_id=job_id, **kwargs)
+        self._executor = DEFAULT_EXECUTOR
+        self.experiments = experiments
+        self._future = None
+        self._fn = backend.run
     
-    @requires_submit
-    def submit(self, exp):
-        self.result = self.backend.run(exp)
+    def submit(self):
+        """Submit the job to the backend for execution.
+
+        Raises:
+            QobjValidationError: if the JSON serialization of the Qobj passed
+            during construction does not validate against the Qobj schema.
+            JobError: if trying to re-submit the job.
+        """
+        if self._future is not None:
+            raise JobError("Aer job has already been submitted.")
+        self._future = self._executor.submit(self._fn, self.experiments, self._job_id)
+        
 
     @requires_submit
-    def result(self):
-        return self.result
-    
+    def result(self, timeout=None):
+        # pylint: disable=arguments-differ
+        """Get job result. The behavior is the same as the underlying
+        concurrent Future objects,
+
+        https://docs.python.org/3/library/concurrent.futures.html#future-objects
+
+        Args:
+            timeout (float): number of seconds to wait for results.
+
+        Returns:
+            qiskit.Result: Result object
+
+        Raises:
+            concurrent.futures.TimeoutError: if timeout occurred.
+            concurrent.futures.CancelledError: if job cancelled before completed.
+        """
+        return self._future.result(timeout=timeout)
+
+    @requires_submit
+    def cancel(self):
+        """Attempt to cancel the job."""
+        return self._future.cancel()
+
+    @requires_submit
     def status(self):
-        raise NotImplementedError
+        """Gets the status of the job by querying the Python's future
 
+        Returns:
+            JobStatus: The current JobStatus
+
+        Raises:
+            JobError: If the future is in unexpected state
+            concurrent.futures.TimeoutError: if timeout occurred.
+        """
+        # The order is important here
+        if self._future.running():
+            _status = JobStatus.RUNNING
+        elif self._future.cancelled():
+            _status = JobStatus.CANCELLED
+        elif self._future.done():
+            _status = JobStatus.DONE if self._future.exception() is None else JobStatus.ERROR
+        else:
+            # Note: There is an undocumented Future state: PENDING, that seems to show up when
+            # the job is enqueued, waiting for someone to pick it up. We need to deal with this
+            # state but there's no public API for it, so we are assuming that if the job is not
+            # in any of the previous states, is PENDING, ergo INITIALIZING for us.
+            _status = JobStatus.INITIALIZING
+        return _status
+
+    def backend(self):
+        """Return the instance of the backend used for this job."""
+        return self._backend
+
+    def qobj(self):
+        """Return the Qobj submitted for this job.
+
+        Returns:
+            Qobj: the Qobj submitted for this job.
+        """
+        return self._qobj
+
+    def executor(self):
+        """Return the executor for this job"""
+        return self._executor
+
+
+# %%

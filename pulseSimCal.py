@@ -30,14 +30,45 @@ ibm_backend = provider.get_backend('ibmq_lima')
 importlib.reload(qiskit_dynamics.pulse.pulseSimClass)
 from qiskit_dynamics.pulse.pulseSimClass import PulseSimulator
 
-backend = PulseSimulator.from_backend(ibm_backend, subsystem_list=[0,1,2,3,4])
+# backend = PulseSimulator.from_backend(ibm_backend, subsystem_list=[0,1,2,3,4])
+backend = PulseSimulator.from_backend(ibm_backend, subsystem_list=[0,1])
 #%%
-from qiskit_dynamics.pulse.pulseSimClass import solver_from_backend
-subsystem_list=[0,1,2,3,4]
-pulseSim = PulseSimulator(solver=solver_from_backend(ibm_backend, subsystem_list))
+# from qiskit_dynamics.pulse.pulseSimClass import solver_from_backend
+# subsystem_list=[0,1,2,3,4]
+# pulseSim = PulseSimulator(solver=solver_from_backend(ibm_backend, subsystem_list))
 #%%
 # backend=ibm_backend
+#%%
+from qiskit.pulse import library
 
+amp = 1
+sigma = 10
+num_samples = 128
+#%%
+gaus = pulse.library.Gaussian(num_samples, amp, sigma,
+                              name="Parametric Gaus")
+gaus.draw()
+
+# %%
+importlib.reload(qiskit_dynamics.pulse.pulseSimClass)
+from qiskit_dynamics.pulse.pulseSimClass import PulseSimulator
+with pulse.build() as schedule:
+    pulse.play(gaus, backend.drive_channel(0))
+    pulse.play(gaus, backend.drive_channel(1))
+    pulse.play(gaus, backend.drive_channel(2))
+    pulse.play(gaus, backend.drive_channel(3))
+    pulse.play(gaus, backend.drive_channel(4))
+schedule.draw()
+y0 = np.zeros(backend.solver.model.dim)
+y0[0] = 1
+t_span = np.array([0, num_samples * backend.solver._dt])
+result = backend.run(schedule, y0=y0, t_span=t_span)
+
+result
+
+
+
+#%%
 cals = Calibrations.from_backend(backend)
 
 # spec = RoughFreqencyCal(qubit, cals, frequencies, backend=backend)
@@ -108,23 +139,7 @@ spec_data = spec.run().block_for_results()
 
 # %%
 
-#%%
-from qiskit.pulse import library
 
-amp = 1
-sigma = 10
-num_samples = 128
-#%%
-gaus = pulse.library.Gaussian(num_samples, amp, sigma,
-                              name="Parametric Gaus")
-gaus.draw()
-
-# %%
-with pulse.build() as schedule:
-    pulse.play(gaus, backend.drive_channel(0))
-schedule.draw()
-#%%
-backend.run(schedule)
 
 # %%
 a
