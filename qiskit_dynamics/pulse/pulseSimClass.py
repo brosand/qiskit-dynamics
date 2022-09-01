@@ -12,7 +12,7 @@ from qiskit.result.models import ExperimentResult#, Result
 import logging
 from qiskit.compiler import transpile
 
-from .utils import requires_submit
+from .utils import requires_submit, format_save_type
 
 #%%
 # from typing import Union
@@ -84,13 +84,16 @@ def solver_from_backend(backend: Backend, subsystem_list: List[int]) -> 'PulseSi
 
     channel_freq_dict = {channel: freq for channel, freq in zip(reduced_channels, [freq for i,freq in enumerate(backend.defaults().qubit_freq_est) if i in subsystem_list])}
     # control_freq_dict = {channel: freq for }
+    # for edge in backend.coupling_map.get_edges():
+    #     if (edge[0] in subsystem_list and edge[1] in subsystem_list):
+    #         channel_freq_dict[backend.control_channel(edge)[0].name] = backend.defaults().qubit_freq_est[edge[0]]
+    #     else:
+    #         if backend.control_channel(edge)[0].name in reduced_channels:
+    #             reduced_channels.remove(backend.control_channel(edge)[0].name)
     for edge in backend.coupling_map.get_edges():
         channel_freq_dict[backend.control_channel(edge)[0].name] = backend.defaults().qubit_freq_est[edge[0]]
-    
-    channel_freq_dict
 
 
-    
     solver = Solver(
         static_hamiltonian=static_hamiltonian,
         hamiltonian_operators=hamiltonian_operators,
@@ -101,13 +104,21 @@ def solver_from_backend(backend: Backend, subsystem_list: List[int]) -> 'PulseSi
     )
     return solver
 
-def ExperimentResult_from_sol(sol: OdeResult, return_type: str) -> ExperimentResult:
+def result_dict_from_sol(sol: OdeResult, return_type: str = None) -> ExperimentResult:
     """
     Get the data from a solver object.
     :param sol: The solver object.
     :param return_type: The type of data to return.
     :return: ExperimentResult.
     """
+
+    if return_type is None:
+        if len(sol.y.shape) == 2:
+            return_type = 'unitary'
+        elif len(sol.y.shape) == 1:
+            return_type = 'state_vector'
+        else:
+            raise NotImplementedError
 
     if return_type == 'state_vector':
         result_data = {'state_vector': sol.y}
@@ -118,30 +129,24 @@ def ExperimentResult_from_sol(sol: OdeResult, return_type: str) -> ExperimentRes
     else:
         raise NotImplementedError(f"Return type {return_type} not implemented.")
 
+    result_dict = {'results':[{'data': result_data, 'shots': 0, 'success': True}]}
+    # result_dict['shots'] = 0
+    # result_dict['success'] = True
+    return result_dict
 
-    return ExperimentResult.from_dict(result_data)
+def format_results(output):
+    """Format C++ simulator output for constructing Result"""
+    for result in output["results"]:
+        data = result.get("data", {})
+        metadata = result.get("metadata", {})
+        save_types = metadata.get("result_types", {})
+        save_subtypes = metadata.get("result_subtypes", {})
+        for key, val in data.items():
+            if key in save_types:
+                data[key] = format_save_type(val, save_types[key], save_subtypes[key])
+    return Result.from_dict(output)
 
-def result_from_sol(sol: Union[OdeResult, List[OdeResult]]) -> Result:
-    """
-    Create a result object from a solver object.
-    :param sol: The solver object.
-    :return: A Result object.
-    """
 
-
-    if isinstance(sol, list):
-        result = Result()
-        for s in sol:
-            s = get_data_from_sol(s)
-            result.add_counts(s.counts)
-            result.add_data(s.data)
-            result.add_final_state(s.final_state)
-            result.add_initial_state(s.initial_state)
-            result.add_time(s.time)
-    else:
-        sol = get_data_from_sol(sol)
-        result = Result(counts=sol.counts, data=sol.data, final_state=sol.final_state, initial_state=sol.initial_state, time=sol.time)
-    return result
 
 # Do we want the hamiltonian and the operators to be separate?
 # We could also have no init, and just have users init with a solver, or use simulator.from_
@@ -170,6 +175,7 @@ class PulseSimulator(BackendV2):
                 logger.warn("Solver arg used, passing in dt will have no effect")
             self.solver = solver
         super().__init__()
+        self.backend_version = 0.1
 
     @classmethod
     def from_backend(cls, backend: BackendV2, subsystem_list: Optional[List[int]] = None) -> 'PulseSimulator':
@@ -180,7 +186,7 @@ class PulseSimulator(BackendV2):
         :return: A PulseSimulator object.
         """
         pulseSim = cls(solver=solver_from_backend(backend, subsystem_list))
-        pulseSim.name = backend.name
+        pulseSim.name = f'Pulse Simulator of {backend.name}'
         if isinstance(backend, BackendV1):
             pulseSim.qubit_properties = backend.properties().qubit_property
             pulseSim.target = Target()
@@ -244,7 +250,7 @@ class PulseSimulator(BackendV2):
         # experiments = self._transpile(run_input)# unsure something like this, convert whatever input to the schedules I guess
         if isinstance(run_input, QuantumCircuit):
             raise NotImplementedError("No quantum circuits yet")
-            experiments = transpile(run_input, backend=self)
+            # experiments = transpile(run_input, backend=self)
         else:
             experiments = run_input
 
@@ -264,35 +270,11 @@ class PulseSimulator(BackendV2):
         # Start timer
         start = time.time()
 
-        # # Take metadata from headers of experiments to work around JSON serialization error
-        # metadata_list = []
-        # metadata_index = 0
-        # for expr in qobj.experiments:
-        #     if hasattr(expr.header, "metadata"):
-        #         metadata_copy = expr.header.metadata.copy()
-        #         metadata_list.append(metadata_copy)
-        #         expr.header.metadata.clear()
-        #         if "id" in metadata_copy:
-        #             expr.header.metadata["id"] = metadata_copy["id"]
-        #         expr.header.metadata["metadata_index"] = metadata_index
-                # metadata_index += 1
-
-        # Run simulation
-        # schedules = pad_schedules(self, schedules)
-        # schedu
         output = self._execute(experiments, y0=y0, t_span=t_span)
-
-        # Recover metadata
-        # metadata_index = 0
-        # for expr in qobj.experiments:
-        #     if hasattr(expr.header, "metadata"):
-        #         expr.header.metadata.clear()
-        #         expr.header.metadata.update(metadata_list[metadata_index])
-        #         metadata_index += 1
 
         # Validate output
         if not isinstance(output, dict):
-            logger.error("%s: simulation failed.", self.name())
+            logger.error("%s: simulation failed.", self.name)
             if output:
                 logger.error('Output: %s', output)
             raise QiskitError(
@@ -301,8 +283,8 @@ class PulseSimulator(BackendV2):
         # Format results
         output["job_id"] = job_id
         output["date"] = datetime.datetime.now().isoformat()
-        output["backend_name"] = self.name()
-        output["backend_version"] = self.configuration().backend_version
+        output["backend_name"] = self.name
+        output["backend_version"] = self.backend_version
 
         # Add execution time
         output["time_taken"] = time.time() - start
@@ -314,11 +296,11 @@ class PulseSimulator(BackendV2):
                 msg += f" and returned the following error message:\n{output['status']}"
             logger.warning(msg)
         if format_result:
-            return self._format_results(output)
+            return format_results(output)
         return output
     
     def _execute(self, schedule: Schedule, y0, t_span):
-        return ExperimentResult_from_sol(self.solver.solve(t_span = t_span, y0=y0, signals=schedule))
+        return result_dict_from_sol(self.solver.solve(t_span = t_span, y0=y0, signals=schedule))
 
     def get_solver(self):
         return self.solver
