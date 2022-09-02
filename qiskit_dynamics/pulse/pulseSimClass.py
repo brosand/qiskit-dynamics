@@ -12,6 +12,8 @@ from qiskit.result.models import ExperimentResult#, Result
 import logging
 from qiskit.compiler import transpile
 
+from qiskit_dynamics.signals.signals import DiscreteSignal, to_SignalSum
+
 from .utils import requires_submit, format_save_type
 
 #%%
@@ -33,11 +35,6 @@ from qiskit_dynamics.pulse.pulse_utils import sample_counts, compute_probabiliti
 #Logger
 logger = logging.getLogger(__name__)
 
-def pad_schedules(backend, schedules):
-    return schedules
-
-
-
 def validate_experiments(experiment):
     if isinstance(experiment, list):
         if isinstance(experiment[0], Schedule):
@@ -52,6 +49,8 @@ def validate_experiments(experiment):
         return "Success"
     else:
         return f"Experiment type {type(experiment)} not yet supported"
+
+
 def get_counts(state_vector: np.ndarray, n_shots: int, seed: int) -> Dict[str, int]:
     """
     Get the counts from a state vector.
@@ -129,7 +128,7 @@ def result_dict_from_sol(sol: OdeResult, return_type: str = None) -> ExperimentR
     else:
         raise NotImplementedError(f"Return type {return_type} not implemented.")
 
-    result_dict = {'results':[{'data': result_data, 'shots': 0, 'success': True}]}
+    result_dict = {'results':[{'data': result_data, 'shots': 0, 'success': True}], 'success': True, 'qobj_id': ''}
     # result_dict['shots'] = 0
     # result_dict['success'] = True
     return result_dict
@@ -437,5 +436,3 @@ class pulseJob(Job):
         """Return the executor for this job"""
         return self._executor
 
-
-# %%

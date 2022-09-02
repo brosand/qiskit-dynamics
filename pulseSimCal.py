@@ -58,9 +58,9 @@ with pulse.build() as schedule:
     pulse.play(gaus, backend.control_channel([0,1])[0])
     pulse.play(gaus, backend.control_channel([1,0])[0])
     pulse.play(gaus, backend.control_channel([1,2])[0])
-    pulse.play(gaus, backend.control_channel([2,1])[0])
-    pulse.play(gaus, backend.control_channel([1,3])[0])
-    pulse.play(gaus, backend.control_channel([3,1])[0])
+    # pulse.play(gaus, backend.control_channel([2,1])[0])
+    # pulse.play(gaus, backend.control_channel([1,3])[0])
+    # pulse.play(gaus, backend.control_channel([3,1])[0])
     # pulse.play(gaus, backend.drive_channel(2))
     # pulse.play(gaus, backend.drive_channel(3))
     # pulse.play(gaus, backend.drive_channel(4))
@@ -70,9 +70,11 @@ y0 = np.zeros(backend.solver.model.dim)
 y0[0] = 1
 t_span = np.array([0, num_samples * backend.solver._dt])
 result = backend.run(schedule, y0=y0, t_span=t_span)
+#%%
+result
 
-
-
+#%%
+result.data
 #%%
 cals = Calibrations.from_backend(backend)
 
@@ -147,5 +149,36 @@ spec_data = spec.run().block_for_results()
 
 
 # %%
-a
+
 # %%
+import numpy as np
+from qiskit_dynamics import DiscreteSignal
+from qiskit_dynamics.signals.signals import to_SignalSum, DiscreteSignalSum
+
+to_SignalSum(DiscreteSignal(samples=[], dt=1.))
+#%%
+DiscreteSignalSum(samples=np.array([[]]), dt=1.)
+# %%
+dt = 1.
+data = []
+start_time = 0
+from qiskit_dynamics.array import Array
+DiscreteSignalSum(
+    dt=dt,
+    samples=Array([[]]).transpose(1, 0),
+    # start_time=start_time,
+    # carrier_freq=Array([carrier_freq]),
+    # phase=Array([phase.data]),
+)
+# %%
+
+# %%
+from qiskit_dynamics.signals import DiscreteSignal, SignalSum
+from qiskit_dynamics.signals import DiscreteSignalSum
+from qiskit_dynamics.signals.signals import to_SignalSum
+import numpy as np
+DiscreteSignalSum(dt=1., samples=np.array([[]]))
+to_SignalSum(DiscreteSignal(dt=1., samples=np.array([[]])))
+#%%
+SignalSum(DiscreteSignal(dt=1., samples=np.array([[]])))
+#%%
