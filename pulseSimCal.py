@@ -58,9 +58,10 @@ with pulse.build() as schedule:
     pulse.play(gaus, backend.control_channel([0,1])[0])
     pulse.play(gaus, backend.control_channel([1,0])[0])
     pulse.play(gaus, backend.control_channel([1,2])[0])
-    # pulse.play(gaus, backend.control_channel([2,1])[0])
-    # pulse.play(gaus, backend.control_channel([1,3])[0])
-    # pulse.play(gaus, backend.control_channel([3,1])[0])
+    # Below need to fix the bug https://github.com/Qiskit/qiskit-dynamics/issues/127
+    pulse.play(gaus, backend.control_channel([2,1])[0])
+    pulse.play(gaus, backend.control_channel([1,3])[0])
+    pulse.play(gaus, backend.control_channel([3,1])[0])
     # pulse.play(gaus, backend.drive_channel(2))
     # pulse.play(gaus, backend.drive_channel(3))
     # pulse.play(gaus, backend.drive_channel(4))
