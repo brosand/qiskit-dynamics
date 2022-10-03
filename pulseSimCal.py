@@ -12,7 +12,8 @@ import importlib
 from qiskit import IBMQ, schedule
 #%%
 from qiskit_ibm_provider import IBMProvider
-# IBMProvider.save_account(token='2ea5ea951217c0dd712a85fb93e0dfbc9f22e211b141e86fca50a039627ef60b07f4c2ac5f96207805ae14c17df4e1dd23144dbc6826fc607be539f6041299ce')
+# IBMProvider.save_account(token=<token>)
+# needs to be installed from this source: https://github.com/Qiskit/qiskit-ibm-provider
 
 #%%
 # provider = IBMProvider.get_provider(hub='ibm-q-internal', group='deployed', project='default')
@@ -73,3 +74,4 @@ t_span = np.array([0, num_samples * backend.solver._dt])
 result = backend.run(schedule, y0=y0, t_span=t_span)
 #%%
 result
+#%%
