@@ -148,9 +148,7 @@ def format_results(output):
 
 
 # Do we want the hamiltonian and the operators to be separate?
-# We could also have no init, and just have users init with a solver, or use simulator.from_
 class PulseSimulator(BackendV2):
-    # def __init__(self, solver: Solver, acquire_channels=None, control_channels=None, measure_channels=None, drive_channels=None):
     def __init__(self, solver: Solver=None, static_hamiltonian=None, hamiltonian_operators=None, dt=None, acquire_channels=None, control_channels=None, measure_channels=None, drive_channels=None):
         if Solver is None:
             if static_hamiltonian is None:
